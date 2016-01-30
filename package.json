@@ -1,0 +1,14 @@
+{
+  "dependencies": {},
+  "description": "GGJ Ritual",
+  "happyFunTimes": {
+    "apiVersion": "1.14.0",
+    "category": "example",
+    "gameId": "ggj-ritual",
+    "gameType": "html",
+    "minPlayers": 1
+  },
+  "name": "GGJRitual",
+  "private": false,
+  "version": "0.0.1"
+}
