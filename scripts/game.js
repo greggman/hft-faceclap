@@ -74,28 +74,31 @@ requirejs([
       pos: [0, 0],
     },
     {
-      color: "hsla(116,100%,50%,1)",
-      hue: 116,
+      color: "hsla(60,100%,50%,1)",
+      hue: 60,
       players: [],
       pos: [1, 0],
     },
     {
-      color: "hsla(230,100%,50%,1)",
-      hue: 230,
+      color: "hsla(190,100%,50%,1)",
+      hue: 190,
       players: [],
       pos: [0, 1],
     },
     {
-      color: "hsla(300,100%,50%,1)",
-      hue: 300,
+      color: "hsla(290,100%,50%,1)",
+      hue: 290,
       players: [],
       pos: [0, 1],
     },
   ];
   var players = [];
   var globals = {
-    tapTime: 1,
+    tapTime: 0.25,
     tempo: 60,
+    minTempo: 60,
+    maxTempo: 200,
+    checkDuration: 0.2,
   };
   globals.spriteManager = spriteManager;
   window.g = globals;
@@ -121,7 +124,10 @@ requirejs([
     this.team = teams[this.teamNdx];
     this.tapTime = 0;
     this.team.players.push(this);
-    netPlayer.sendCmd("setColor", this.team.color);
+    netPlayer.sendCmd("setColor", {
+      color: this.team.color,
+      hue: this.team.hue,
+    });
 
     netPlayer.addEventListener('disconnect', Player.prototype.disconnect.bind(this));
     netPlayer.addEventListener('tap', Player.prototype.tap.bind(this));
@@ -159,6 +165,9 @@ requirejs([
     bg:    { url: "images/BG.png", },
     half:  { url: "images/REDFACE.png", },
     sun:   { url: "images/SUN.png", },
+    dot:   { url: "images/RED.png", },
+    maru:  { url: "images/MARU.png", },
+    batsu: { url: "images/BATSU.png", },
   };
   ImageLoader.loadImages(images, processImages);
 
@@ -218,21 +227,55 @@ requirejs([
       });
     }
 
+    teams.forEach(function(team, ndx) {
+      var sprite = spriteManager.createSprite();
+      team.powerSprite = sprite;
+      sprite.uniforms.u_hsvaAdjust[0] = hues[ndx];
+      sprite.uniforms.u_texture = images.dot.tex;
+      sprite.y = 720; //(ndx < 2) ? 0 : 720,
+      sprite.x = ((ndx + 1) / (teams.length + 1)) * 1280; //        (ndx & 1) ? 1280 : 0;
+//      sprite.centerX = (ndx & 1) ? -1 : 0;
+//      sprite.centerY = (ndx < 2) ? 0 : -1;
+      sprite.centerY = -1;
+      sprite.width  = 1280/6;
+      sprite.height = 100;
+
+      var sprite = spriteManager.createSprite();
+      team.resultSprite = sprite;
+      sprite.uniforms.u_hsvaAdjust[0] = hues[ndx];
+      sprite.uniforms.u_texture = images.maru.tex;
+      sprite.y = 700; //(ndx < 2) ? 0 : 720,
+      sprite.x = ((ndx + 1) / (teams.length + 1)) * 1280; //        (ndx & 1) ? 1280 : 0;
+//      sprite.centerX = (ndx & 1) ? -1 : 0;
+//      sprite.centerY = (ndx < 2) ? 0 : -1;
+      sprite.centerY = -1;
+      sprite.width  = 64;
+      sprite.height = 64;
+
+    });
+
     g.imagesLoaded = true;
   }
 
 
   var sounds = {
-    ewah:           { filename: "sounds/ewah.mp3", },
-    ah:             { filename: "sounds/ah.mp3", },
-    gah:            { filename: "sounds/gah.mp3", },
-    ung:            { filename: "sounds/ung.mp3", },
+//    ewah:           { filename: "sounds/ewah.mp3", },
+//    ah:             { filename: "sounds/ah.mp3", },
+//    gah:            { filename: "sounds/gah.mp3", },
+//    ung:            { filename: "sounds/ung.mp3", },
+
+    ewah:           { filename: "sounds/g-mi.mp3", },
+    ah:             { filename: "sounds/g-ho.mp3", },
+    gah:            { filename: "sounds/g-ke.mp3", },
+    ung:            { filename: "sounds/g-ah.mp3", },
 
     djembe:         { filename: "sounds/21902__reflecs__djembe-low-2-loud.wav", },
     vocaldrum:      { filename: "sounds/205935__speedenza__vocalised-drum-1.mp3", },
     drum4:          { filename: "sounds/100707__steveygos93__drum4-trim.mp3", },
     handdrum:       { filename: "sounds/11877__medialint__hand-frame-drum.wav",  },
-  };
+
+    wrong:          { filename: "sounds/wrong.mp3", },
+  }
   var audioManager = new AudioManager(sounds);
   audioManager.on('loaded', function() { g.soundsLoaded = true; console.log("loaded"); });
 
@@ -273,15 +316,19 @@ requirejs([
 
   var drumSequences = [
     {
+      // 4 : bass
+      // 5 : "toh"
+      // 6 : tympany
+      // 7 : handtap
       notes: [
         { qqn:  0, sound: 7, },
-      //  { qqn:  2, sound: 7, },
+        { qqn:  2, sound: 7, },
         { qqn:  4, sound: 7, },
-      //  { qqn:  6, sound: 7, },
+        { qqn:  6, sound: 7, },
         { qqn:  8, sound: 7, },
-      //  { qqn: 10, sound: 7, },
+        { qqn: 10, sound: 7, },
         { qqn: 12, sound: 7, },
-      //  { qqn: 14, sound: 7, },
+        { qqn: 14, sound: 7, },
       ],
     },
 //    {
@@ -380,7 +427,7 @@ requirejs([
 
   function nextNote() {
     // Advance current note and time by a 16th note...
-    var secondsPerBeat = 60.0 / globals.tempo;	// picks up the CURRENT tempo value!
+    var secondsPerBeat = globals.tempo ? 60.0 / globals.tempo : 0;	// picks up the CURRENT tempo value!
     nextNoteTime += 0.25 * secondsPerBeat;	// Add 1/4 of quarter-note beat length to time
 
     current16thNote++;	// Advance the beat number, wrap to zero
@@ -405,6 +452,9 @@ requirejs([
   var faceCount = 0;
 
   function addNotes(currentTime) {
+    if (!globals.tempo) {
+      return;
+    }
     var targetTime = currentTime + lookAheadDuration;
     while (nextNoteTime < targetTime) {
       sequencePlayers.forEach(function(sequencePlayer) {
@@ -417,8 +467,9 @@ requirejs([
             sound = notes[face];
             faceQueue.push({faceNdx: face, time: nextNoteTime});
             detune = face;
+          } else {
+            audioManager.playSound(sound, nextNoteTime, detune);
           }
-          audioManager.playSound(sound, nextNoteTime, detune);
 //          if (note.face && faceNdx < faceList.length) {
 //            faceQueue.push({faceNdx: faceList[faceNdx++], time: nextNoteTime});
 //          }
@@ -437,9 +488,9 @@ requirejs([
   function FaceResolver() {
     var faceInfo;
     var duration = 1;
-    var checkDuration = 0.25;
     var checked;
     var good;
+    var bad;
     var sprites = [
       spriteManager.createSprite(),
       spriteManager.createSprite(),
@@ -469,14 +520,14 @@ requirejs([
 
     function init(fi) {
       faceInfo = fi;
-      checked = false;
-      good = false;
+      checked = fi.bad ? true : false;
+      good = fi.bad ? false : (fi.good ? 0.1 : false);
+      bad = fi.bad;
       sprites.forEach(function(sprite, ndx) {
         var sign = (ndx ? -1 : 1);
         sprite.uniforms.u_hsvaAdjust[0]  = hues[faceInfo.faceNdx];
         sprite.uniforms.u_hsvaAdjust[1]  = 0;
-        sprite.visible = true;
-        sprite.y = 640;
+        sprite.x = 640;
         sprite.y = 320;
         sprite.xScale = sign;
         sprite.yScale = 1;
@@ -484,26 +535,64 @@ requirejs([
       });
     };
 
+    function isGood(faceNdx, time) {
+      var elapsedTime = time - faceInfo.time;
+      var lerp = elapsedTime / duration;
+      var sameFace = faceInfo.faceNdx == faceNdx;
+      var goodTiming = Math.abs(elapsedTime) < globals.checkDuration;
+      var goodResult = sameFace && goodTiming;
+      if (!checked && goodResult) {
+        checked = true;
+        good = lerp + 0.01;
+      }
+      return goodResult;
+    }
+
     function process(time) {
       var elapsedTime = time - faceInfo.time;
       var lerp = elapsedTime / duration;
-      if (!checked && elapsedTime < checkDuration) {
-        if (teams[faceInfo.faceNdx].power > 0.5) {
-          checked = true;
-          good = lerp + 0.01;
-        }
-      }
+      //if (!checked && elapsedTime < globals.checkDuration) {
+      //  var power = 0;
+      //  teams.forEach(function(team, ndx) {
+      //    power += team.power * (faceInfo.faceNdx == ndx ? 1 : 0);
+      //  });
+      //  if (power > 0.5) {
+      //    checked = true;
+      //    good = lerp + 0.01;
+//    //      var sound = notes[faceInfo.faceNdx];
+//    //      audioManager.playSound(sound);
+      //  }
+      //}
       if (lerp > 1) {
+        if (good) {
+          globals.tempo = Math.min(globals.tempo + 12, globals.maxTempo);
+        } else {
+          globals.tempo = Math.max(globals.tempo - 3, globals.minTempo);
+        }
+        var goodTex = images.maru.tex;
+        teams.forEach(function(team, ndx) {
+          var g;
+          if (ndx === faceInfo.faceNdx) {
+            g = team.power > 0.5;
+          } else {
+            g = team.power < 0.2;
+          }
+          team.resultTimer = time;
+          team.resultSprite.uniforms.u_texture = g ? images.maru.tex : images.batsu.tex;
+          team.resultSprite.uniforms.u_hsvaAdjust[2] = g ? -0.2 : -1;
+        });
         return die();
       }
       sprites.forEach(function(sprite, ndx) {
         var sign = (ndx ? -1 : 1);
+        sprite.visible = lerp >= 0;
         sprite.uniforms.u_hsvaAdjust[3] = good ? 1 : -lerp;
         var s = 1 - lerp * 0.5; //1 + lerp * 1.5;
         var goodLerp = lerp - good;
         sprite.xScale = (good ? (1 + goodLerp) : s) * sign
         sprite.yScale = good ? (1 + goodLerp) : s;
-        sprite.x = 640 + (good ? 0 : lerp * 200 * -sign);
+        var timeToCenter = faceInfo.timeToCenter || 0;
+        sprite.x = 640 + (640 * timeToCenter + (good ? 0 : lerp * 200)) * -sign;
         sprite.y = 320 + (good ? (goodLerp * -400) : (lerp * 300));
         sprite.rotation = good ? 0 : -lerp * sign;
         sprite.uniforms.u_hsvaAdjust[1] = good ? -lerp : 0;
@@ -512,6 +601,7 @@ requirejs([
 
     this.init = init;
     this.process = process;
+    this.isGood = isGood;
   }
 
   function addFaceResolver(faceInfo) {
@@ -573,12 +663,69 @@ requirejs([
       addFaceResolver(faceQueue.splice(0, 1)[0]);
     }
 
-    teams.forEach(function(team) {
+    teams.forEach(function(team, ndx) {
       var taps = 0;
       team.players.forEach(function(player) {
         taps += player.getTapPower();
       });
+      team.oldPower = team.power;
       team.power = taps / (team.players.length || 1);
+      team.powerSprite.xScale = 0.1 + team.power;
+      team.powerSprite.yScale = 0.1 + team.power;
+
+      if (team.power > 0.5 && team.oldPower <= 0.5) {
+        var good = false;
+        faceResolvers.forEach(function(resolver) {
+          if (resolver.isGood(ndx, time)) {
+            //console.log("good resolver");
+            good = true;
+          }
+        });
+        var bad = [];
+        faceQueue.forEach(function(faceInfo) {
+          var elapsedTime = time - faceInfo.time;
+          var sameFace = faceInfo.faceNdx == ndx;
+          var goodTiming = Math.abs(elapsedTime) < globals.checkDuration;
+          var goodResult = sameFace && goodTiming;
+          if (goodResult) {
+//            console.log("good faceQ");
+            faceInfo.good = true;
+            good = true;
+          } else if (sameFace) {
+            var timeToCenter = faceInfo.time - time;
+            var xPos = 640 * timeToCenter;
+            var onScreen = Math.abs(xPos) < 600;
+//console.log("sf:", sameFace, "timeToCenter:", timeToCenter, "xp:", xPos, "onSc:", onScreen);
+            if (onScreen) {
+              faceInfo.bad = true;
+              faceInfo.timeToCenter = timeToCenter;
+              faceInfo.time = time;
+              bad.push(faceInfo);
+            }
+          }
+        });
+        while (bad.length) {
+          var qNdx = faceQueue.indexOf(bad.pop());
+//console.log(qNdx, " addFaceR");
+          addFaceResolver(faceQueue.splice(qNdx, 1)[0]);
+        }
+        var sound = good ? notes[ndx] : "wrong";
+        audioManager.playSound(sound);
+      }
+
+      if (team.resultTimer) {
+        var elapsedTime = time - team.resultTime;
+        var lerp = elapsedTime / 0.5;
+        if (lerp > 1) {
+          team.resultSprite.visible = false;
+        } else {
+          team.resultSprite.visible = (time * 30 | 0) % 2;
+        }
+      }
+
+      // HIDE THIS!!!
+//      team.powerSprite.visible = false;
+      team.resultSprite.visible = false;
     });
 
     faceResolvers.forEach(function(resolver) {
@@ -586,12 +733,12 @@ requirejs([
     });
 
 //    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    teams.forEach(function(team) {
-      var taps = 0;
-      team.players.forEach(function(player) {
-        taps += player.getTapPower();
-      });
-      var power = taps / (team.players.length || 1);
+//    teams.forEach(function(team) {
+//      var taps = 0;
+//      team.players.forEach(function(player) {
+//        taps += player.getTapPower();
+//      });
+//      var power = taps / (team.players.length || 1);
 //      var x = ctx.canvas.width  / 2 * team.pos[0];
 //      var y = ctx.canvas.height / 2 * team.pos[1];
 //      ctx.save();
@@ -607,12 +754,15 @@ requirejs([
 //      ctx.fillText("[" + team.players.length + "] " + power.toFixed(2), 0, 0);
 //      ctx.restore();
 //      ctx.restore();
-      spriteManager.draw();
-    });
+//    });
+    spriteManager.draw();
   };
 
   window.addEventListener('click', function() {
      globals.tempo = globals.tempo ? 0 : 60;
+  });
+  window.addEventListener('keypress', function() {
+     globals.keyPressTime = audioManager.getTime();
   });
 
   GameSupport.run(globals, render);

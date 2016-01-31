@@ -32,6 +32,8 @@
 
 // Start the main app logic.
 requirejs([
+    '../bower_components/hft-utils/dist/imageloader',
+    '../bower_components/hft-utils/dist/imageutils',
     'hft/commonui',
     'hft/gameclient',
     'hft/misc/input',
@@ -40,6 +42,8 @@ requirejs([
     'hft/syncedclock',
     'hft/misc/touch',
   ], function(
+    ImageLoader,
+    ImageUtils,
     CommonUI,
     GameClient,
     Input,
@@ -56,11 +60,40 @@ requirejs([
   var clock = SyncedClock.createClock(true);
 
   var score = 0;
+  var loaded;
+  var hue;
   var inputElem = document.getElementById("inputarea");
   var colorElem = document.getElementById("display");
   var client = new GameClient();
 
   CommonUI.setupStandardControllerUI(client, globals);
+
+  var images = {
+    half:   { url: "images/REDFACE.png", },
+  };
+  ImageLoader.loadImages(images, checkImages);
+
+  function checkImages() {
+    loaded = true;
+    processImages();
+  }
+
+  function processImages() {
+    if (hue !== undefined && loaded) {
+      var ctx = document.createElement("canvas").getContext("2d");
+      ctx.canvas.width  = images.half.img.width;
+      ctx.canvas.height = images.half.img.height;
+      var canvas = ImageUtils.adjustHSV(images.half.img, hue / 360, 0, 0);
+      var ctx2 = document.createElement("canvas").getContext("2d");
+      ctx2.canvas.width  = images.half.img.width * 2;
+      ctx2.canvas.height = images.half.img.height;
+      ctx2.drawImage(canvas, 0, 0);
+      ctx2.scale(-1, 1);
+//      ctx2.translate(images.half.img.width, 0);
+      ctx2.drawImage(canvas, -images.half.img.width * 2, 0);
+      document.getElementById("c").appendChild(ctx2.canvas);
+    }
+  }
 
   var randInt = function(range) {
     return Math.floor(Math.random() * range);
@@ -75,8 +108,10 @@ requirejs([
   });
 
   // Update our score when the game tells us.
-  client.addEventListener('setColor', function(color) {
-    colorElem.style.backgroundColor = color;
+  client.addEventListener('setColor', function(data) {
+    colorElem.style.backgroundColor = data.color;
+    hue = data.hue;
+    processImages();
   });
 });
 
