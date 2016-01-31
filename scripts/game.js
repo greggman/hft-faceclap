@@ -45,6 +45,8 @@ requirejs([
     'hft/gamesupport',
     'hft/misc/misc',
     'hft/syncedclock',
+    './particleeffectmanager',
+    './particlesystemmanager',
     './tweeny',
   ], function(
     AudioManager,
@@ -57,10 +59,20 @@ requirejs([
     GameSupport,
     Misc,
     SyncedClock,
+    ParticleEffectManager,
+    ParticleSystemManager,
     tweeny) {
 
+  var globals = {
+    tapTime: 0.25,
+    tempo: 60,
+    minTempo: 60,
+    maxTempo: 200,
+    checkDuration: 0.2,
+  };
   var canvas = document.getElementById("c");
   var gl = WebGL.setupWebGL(canvas, {alpha:false}, function() {});
+  globals.particleSystemManager = new ParticleSystemManager();
   gl.canvas.width = 1280;
   gl.canvas.height = 720;
   var spriteManager = new SpriteManager();
@@ -93,13 +105,6 @@ requirejs([
     },
   ];
   var players = [];
-  var globals = {
-    tapTime: 0.25,
-    tempo: 60,
-    minTempo: 60,
-    maxTempo: 200,
-    checkDuration: 0.2,
-  };
   globals.spriteManager = spriteManager;
   window.g = globals;
   Misc.applyUrlSettings(globals);
@@ -253,6 +258,7 @@ requirejs([
       sprite.height = 64;
 
     });
+    globals.particleEffectManager = new ParticleEffectManager(globals);
 
     g.imagesLoaded = true;
   }
@@ -456,6 +462,7 @@ requirejs([
       return;
     }
     var targetTime = currentTime + lookAheadDuration;
+    var soundCount = 4;
     while (nextNoteTime < targetTime) {
       sequencePlayers.forEach(function(sequencePlayer) {
         var note = sequencePlayer.getCurrentNote();
@@ -468,7 +475,10 @@ requirejs([
             faceQueue.push({faceNdx: face, time: nextNoteTime});
             detune = face;
           } else {
-            audioManager.playSound(sound, nextNoteTime, detune);
+            if (soundCount) {
+              --soundCount;
+              audioManager.playSound(sound, nextNoteTime, detune);
+            }
           }
 //          if (note.face && faceNdx < faceList.length) {
 //            faceQueue.push({faceNdx: faceList[faceNdx++], time: nextNoteTime});
@@ -660,6 +670,7 @@ requirejs([
     }
 
     while (faceQueue.length && faceQueue[0].time < time) {
+//      globals.particleEffectManager.spawnConfetti(640,360, faceQueue[0].faceNdx);
       addFaceResolver(faceQueue.splice(0, 1)[0]);
     }
 
@@ -756,6 +767,7 @@ requirejs([
 //      ctx.restore();
 //    });
     spriteManager.draw();
+    globals.particleSystemManager.drawParticleSystemInFrontOfPlayer({x:0,y:0});
   };
 
   window.addEventListener('click', function() {
