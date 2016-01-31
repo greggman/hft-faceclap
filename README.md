@@ -1,16 +1,11 @@
-Simple
-======
-
-This is a sample game for the [HappyFunTimes party games system](http://greggman.github.io/HappyFunTimes).
+FaceClap
+========
 
 <img src="screenshot.png" />
 
-It shows using the screen as a touch surface.
+A 50-100 player game for GGJ 2016
 
-Cloning
--------
 
-[If you want to clone this follow the instructions here](https://github.com/greggman/HappyFunTimes/blob/master/docs/makinggames.md)
 
 
 

@@ -68,7 +68,9 @@ requirejs([
     tempo: 60,
     minTempo: 60,
     maxTempo: 200,
+    maxScore: 2, //20,
     checkDuration: 0.2,
+    win: false,
   };
   var canvas = document.getElementById("c");
   var gl = WebGL.setupWebGL(canvas, {alpha:false}, function() {});
@@ -77,31 +79,35 @@ requirejs([
   gl.canvas.height = 720;
   var spriteManager = new SpriteManager();
   var clock = SyncedClock.createClock(true);
-  var hues = [0, 0.17, 0.55, 0.8];
+  var hues = [0, 0.15, 0.55, 0.8];
   var teams = [
     {
       color: "hsla(  0,100%,50%,1)",
       hue: 0,
       players: [],
       pos: [0, 0],
+      score: 0,
     },
     {
       color: "hsla(60,100%,50%,1)",
-      hue: 60,
+      hue: 50,
       players: [],
       pos: [1, 0],
+      score: 0,
     },
     {
       color: "hsla(190,100%,50%,1)",
       hue: 190,
       players: [],
       pos: [0, 1],
+      score: 0,
     },
     {
       color: "hsla(290,100%,50%,1)",
       hue: 290,
       players: [],
       pos: [0, 1],
+      score: 0,
     },
   ];
   var players = [];
@@ -173,7 +179,14 @@ requirejs([
     dot:   { url: "images/RED.png", },
     maru:  { url: "images/MARU.png", },
     batsu: { url: "images/BATSU.png", },
+    gnd:   { url: "images/GROUND.png", },
+
+    rb:    { url: "images/REDBAR.png", },
+    yb:    { url: "images/YELLOWBAR.png", },
+    bb:    { url: "images/BLUEBAR.png", },
+    pb:    { url: "images/PURPLEBAR.png", },
   };
+  globals.images = images;
   ImageLoader.loadImages(images, processImages);
 
   function createTexture(img) {
@@ -203,12 +216,56 @@ requirejs([
       globals.sunSprites.push(sunSprite);
     }
 
+    globals.grdSprite = spriteManager.createSprite();
+    globals.grdSprite.uniforms.u_texture = images.gnd.tex;
+    globals.grdSprite.x = 640;
+    globals.grdSprite.y = 720;
+    globals.grdSprite.centerY = -1;
+    globals.grdSprite.width = images.gnd.img.width;
+    globals.grdSprite.height = images.gnd.img.height;
+
+    var barImages = [
+      { img: "rb", x: 547, y: 187 },  // red
+      { img: "yb", x: 728, y: 188 },
+      { img: "bb", x: 606, y: 170 },
+      { img: "pb", x: 670, y: 170 },
+    ];
+
+    teams.forEach(function(team, ndx) {
+        var bar = barImages[ndx];
+        var img = images[bar.img];
+        var sprite = spriteManager.createSprite();
+        sprite.uniforms.u_texture = img.tex;
+        sprite.x = bar.x;
+        sprite.y = bar.y;
+        sprite.centerY = -1;
+        sprite.width = img.img.width;
+        sprite.height = img.img.height;
+        team.scoreSprite = sprite;
+    });
+
     globals.bgSprite = spriteManager.createSprite();
     globals.bgSprite.uniforms.u_texture = images.bg.tex;
     globals.bgSprite.x = 0;
     globals.bgSprite.y = 0;
     globals.bgSprite.width = 1280;
     globals.bgSprite.height = 720;
+
+    globals.godFaceSprite = [];
+    for (var ii = 0; ii < 2; ++ii) {
+      var sprite = spriteManager.createSprite();
+      sprite.uniforms.u_texture = images.half.tex;
+      sprite.uniforms.u_hsvaAdjust[1] = -1;
+      sprite.uniforms.u_hsvaAdjust[2] = -0.5;
+      sprite.x = 640;
+      sprite.y = 320;
+      sprite.centerX = -1;
+      sprite.xScale = ii ? -1 : 1;
+      sprite.width  = images.half.img.width;
+      sprite.height = images.half.img.height;
+      globals.godFaceSprite.push(sprite);
+    }
+
 
     globals.faces = [];
     var numFaces = 10;
@@ -220,8 +277,8 @@ requirejs([
       sprites.forEach(function(sprite, ndx) {
         sprite.uniforms.u_hsvaAdjust[0] = hues[ii % 3];
         sprite.uniforms.u_texture = images.half.tex;
-        sprite.xScale = ndx ? -1 : 1,
-        sprite.y = 320,
+        sprite.xScale = ndx ? -1 : 1;
+        sprite.y = 320;
         sprite.x = 640 + 640 * (ii | 0) / numFaces * -sprite.xScale;
         sprite.centerX = -1;
         sprite.width  = images.half.img.width;
@@ -260,6 +317,22 @@ requirejs([
     });
     globals.particleEffectManager = new ParticleEffectManager(globals);
 
+    globals.winSprites = [];
+    for (var ii = 0; ii < 200; ++ii) {
+      var sprite = spriteManager.createSprite();
+      sprite.uniforms.u_hsvaAdjust[0] = Math.random();
+      sprite.uniforms.u_texture = images.half.tex;
+      sprite.xScale = (ii % 2) ? -1 : 1;
+      sprite.y = 320;
+      sprite.x = 640;
+      sprite.centerX = -1;
+      sprite.width  = images.half.img.width;
+      sprite.height = images.half.img.height;
+      sprite.visible = false;
+      sprite.rand = Math.random();
+      globals.winSprites.push(sprite);
+    }
+
     g.imagesLoaded = true;
   }
 
@@ -278,9 +351,11 @@ requirejs([
     djembe:         { filename: "sounds/21902__reflecs__djembe-low-2-loud.wav", },
     vocaldrum:      { filename: "sounds/205935__speedenza__vocalised-drum-1.mp3", },
     drum4:          { filename: "sounds/100707__steveygos93__drum4-trim.mp3", },
-    handdrum:       { filename: "sounds/11877__medialint__hand-frame-drum.wav",  },
+    handdrum:       { filename: "sounds/clap.mp3", }, //  { filename: "sounds/11877__medialint__hand-frame-drum.wav",  },
+    po:             { filename: "sounds/po.mp3", }, //  { filename: "sounds/11877__medialint__hand-frame-drum.wav",  },
 
     wrong:          { filename: "sounds/wrong.mp3", },
+    win:            { filename: "sounds/win.mp3", },
   }
   var audioManager = new AudioManager(sounds);
   audioManager.on('loaded', function() { g.soundsLoaded = true; console.log("loaded"); });
@@ -295,6 +370,7 @@ requirejs([
     "vocaldrum",
     "drum4",
     "handdrum",
+    "po",
   ];
 
   var voiceSequences = [
@@ -326,14 +402,15 @@ requirejs([
       // 5 : "toh"
       // 6 : tympany
       // 7 : handtap
+      // 8 : po
       notes: [
-        { qqn:  0, sound: 7, },
+        { qqn:  0, sound: 8, },
         { qqn:  2, sound: 7, },
-        { qqn:  4, sound: 7, },
+        { qqn:  4, sound: 8, },
         { qqn:  6, sound: 7, },
-        { qqn:  8, sound: 7, },
+        { qqn:  8, sound: 8, },
         { qqn: 10, sound: 7, },
-        { qqn: 12, sound: 7, },
+        { qqn: 12, sound: 8, },
         { qqn: 14, sound: 7, },
       ],
     },
@@ -472,12 +549,16 @@ requirejs([
           if (note.face) {
             var face = Misc.randInt(hues.length); //(faceCount++ % hues.length)
             sound = notes[face];
-            faceQueue.push({faceNdx: face, time: nextNoteTime});
+            if (!globals.win) {
+              faceQueue.push({faceNdx: face, time: nextNoteTime});
+            }
             detune = face;
           } else {
             if (soundCount) {
               --soundCount;
-              audioManager.playSound(sound, nextNoteTime, detune);
+              if (!globals.win) {
+                audioManager.playSound(sound, nextNoteTime, detune);
+              }
             }
           }
 //          if (note.face && faceNdx < faceList.length) {
@@ -561,6 +642,7 @@ requirejs([
     function process(time) {
       var elapsedTime = time - faceInfo.time;
       var lerp = elapsedTime / duration;
+      var team = teams[faceInfo.faceNdx];
       //if (!checked && elapsedTime < globals.checkDuration) {
       //  var power = 0;
       //  teams.forEach(function(team, ndx) {
@@ -578,6 +660,7 @@ requirejs([
           globals.tempo = Math.min(globals.tempo + 12, globals.maxTempo);
         } else {
           globals.tempo = Math.max(globals.tempo - 3, globals.minTempo);
+          team.score = Math.min(globals.maxScore, Math.max(0, team.score + -1));
         }
         var goodTex = images.maru.tex;
         teams.forEach(function(team, ndx) {
@@ -647,7 +730,7 @@ requirejs([
     globals.sunSprites.forEach(function(sprite, ndx) {
       sprite.rotation = time * (ndx ? 0.1 : -0.1);
       sprite.uniforms.u_hsvaAdjust[0] = Math.sin(time * 10) * 0.05 + 0.05;
-      sprite.uniforms.u_hsvaAdjust[1] = -0.2 + Math.sin(time * 0.1) * -0.2;
+      sprite.uniforms.u_hsvaAdjust[1] = -0.6 + Math.sin(time * 0.1) * -0.2;
       sprite.xScale = (1.2 + Math.sin(time) * 0.1) * (ndx ? 1 : -1);
       sprite.yScale = 1.2 + Math.sin(time) * 0.1;
     });
@@ -670,11 +753,13 @@ requirejs([
     }
 
     while (faceQueue.length && faceQueue[0].time < time) {
-//      globals.particleEffectManager.spawnConfetti(640,360, faceQueue[0].faceNdx);
+//      globals.particleEffectManager.spawnConfetti(globals, 640, 360);
       addFaceResolver(faceQueue.splice(0, 1)[0]);
     }
 
+    var totalScore = 0;
     teams.forEach(function(team, ndx) {
+      totalScore += team.score;
       var taps = 0;
       team.players.forEach(function(player) {
         taps += player.getTapPower();
@@ -692,36 +777,46 @@ requirejs([
             good = true;
           }
         });
-        var bad = [];
-        faceQueue.forEach(function(faceInfo) {
-          var elapsedTime = time - faceInfo.time;
-          var sameFace = faceInfo.faceNdx == ndx;
-          var goodTiming = Math.abs(elapsedTime) < globals.checkDuration;
-          var goodResult = sameFace && goodTiming;
-          if (goodResult) {
-//            console.log("good faceQ");
-            faceInfo.good = true;
-            good = true;
-          } else if (sameFace) {
-            var timeToCenter = faceInfo.time - time;
-            var xPos = 640 * timeToCenter;
-            var onScreen = Math.abs(xPos) < 600;
-//console.log("sf:", sameFace, "timeToCenter:", timeToCenter, "xp:", xPos, "onSc:", onScreen);
-            if (onScreen) {
-              faceInfo.bad = true;
-              faceInfo.timeToCenter = timeToCenter;
-              faceInfo.time = time;
-              bad.push(faceInfo);
+        if (!good) {
+          var bad = [];
+          faceQueue.forEach(function(faceInfo) {
+            if (good || bad.length) {
+              return;
             }
+            var elapsedTime = time - faceInfo.time;
+            var sameFace = faceInfo.faceNdx == ndx;
+            var goodTiming = Math.abs(elapsedTime) < globals.checkDuration;
+            var goodResult = sameFace && goodTiming;
+            if (goodResult) {
+  //            console.log("good faceQ");
+              faceInfo.good = true;
+              good = true;
+            } else if (sameFace) {
+              var timeToCenter = faceInfo.time - time;
+              var xPos = 640 * timeToCenter;
+              var onScreen = Math.abs(xPos) < 600;
+  //console.log("sf:", sameFace, "timeToCenter:", timeToCenter, "xp:", xPos, "onSc:", onScreen);
+              if (onScreen) {
+                faceInfo.bad = true;
+                faceInfo.timeToCenter = timeToCenter;
+                faceInfo.time = time;
+                bad.push(faceInfo);
+              }
+            }
+          });
+          while (bad.length) {
+            var qNdx = faceQueue.indexOf(bad.pop());
+  //console.log(qNdx, " addFaceR");
+            addFaceResolver(faceQueue.splice(qNdx, 1)[0]);
           }
-        });
-        while (bad.length) {
-          var qNdx = faceQueue.indexOf(bad.pop());
-//console.log(qNdx, " addFaceR");
-          addFaceResolver(faceQueue.splice(qNdx, 1)[0]);
         }
         var sound = good ? notes[ndx] : "wrong";
-        audioManager.playSound(sound);
+        if (!globals.win) {
+          audioManager.playSound(sound);
+        }
+        if (good) {
+          team.score = Math.min(globals.maxScore, Math.max(0, team.score + (good ? 1 : -1)));
+        }
       }
 
       if (team.resultTimer) {
@@ -737,10 +832,29 @@ requirejs([
       // HIDE THIS!!!
 //      team.powerSprite.visible = false;
       team.resultSprite.visible = false;
+
+      team.scoreSprite.yScale = team.score / globals.maxScore;
+
+      if (totalScore == globals.maxScore * teams.length) {
+        if (!globals.win) {
+          audioManager.playSound("win");
+          globals.win = true;
+        }
+      }
+
     });
 
     faceResolvers.forEach(function(resolver) {
       resolver.process(time);
+    });
+
+    var maxTotalScore = globals.maxScore * teams.length;
+    var t = totalScore / maxTotalScore;
+
+    globals.godFaceSprite.forEach(function(sprite) {
+      sprite.uniforms.u_hsvaAdjust[0] = (time * 10) % 1;
+      sprite.uniforms.u_hsvaAdjust[1] = -1 + Math.pow(t, 3);
+      sprite.uniforms.u_hsvaAdjust[2] = -0.5 + Math.pow(t, 3);
     });
 
 //    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
@@ -766,6 +880,20 @@ requirejs([
 //      ctx.restore();
 //      ctx.restore();
 //    });
+
+    if (globals.win) {
+      globals.winSprites.forEach(function(sprite, ndx) {
+        var lerp = (time + sprite.rand + (ndx / 2 | 0) / (globals.winSprites.length/ 2)) % 1;
+        var r = 640;
+        var c = Math.cos(sprite.rand * Math.PI * 2);
+        var s = Math.sin(sprite.rand * Math.PI * 2);
+        sprite.visible = true;
+        sprite.uniforms.u_hsvaAdjust[1] = -Math.sin(time * 20 + ndx) * 0.3;
+        sprite.x = 640 + c * lerp * r;
+        sprite.y = 320 + s * lerp * r;
+      });
+    }
+
     spriteManager.draw();
     globals.particleSystemManager.drawParticleSystemInFrontOfPlayer({x:0,y:0});
   };
