@@ -68,7 +68,7 @@ requirejs([
     tempo: 60,
     minTempo: 60,
     maxTempo: 200,
-    maxScore: 2, //20,
+    maxScore: 20, //20,
     checkDuration: 0.2,
     win: false,
   };
