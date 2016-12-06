@@ -3,7 +3,7 @@
   "productName": "FaceClap",
   "description": "GGJ Ritual Entry",
   "private": false,
-  "version": "0.0.2",
+  "version": "1.0.0",
   "build": {
     "appId": "com.greggman.hftfaceclap",
     "asar": false,
