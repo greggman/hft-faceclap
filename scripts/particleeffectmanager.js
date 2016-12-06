@@ -30,20 +30,21 @@
  */
 "use strict";
 
-define(
-  [ 'hft/misc/misc',
-    '../bower_components/hft-utils/dist/imageutils',
-    '../bower_components/tdl/tdl/fast',
-    '../bower_components/tdl/tdl/math',
-    '../bower_components/tdl/tdl/particles',
-    '../bower_components/tdl/tdl/textures',
+define([
+    'hft-sample-ui',
+    '../3rdparty/hft-utils/dist/imageutils',
+    '../3rdparty/tdl/tdl/fast',
+    '../3rdparty/tdl/tdl/math',
+    '../3rdparty/tdl/tdl/particles',
+    '../3rdparty/tdl/tdl/textures',
   ], function(
-    Misc,
+    sampleUI,
     ImageUtils,
     Fast,
     Maths,
     Particles,
     Textures) {
+  var Misc = sampleUI.misc;
 
   var maxConfetti = 10;
   var numBonkGroups = 4;

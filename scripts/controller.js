@@ -32,25 +32,25 @@
 
 // Start the main app logic.
 requirejs([
-    '../bower_components/hft-utils/dist/imageloader',
-    '../bower_components/hft-utils/dist/imageutils',
-    'hft/commonui',
-    'hft/gameclient',
-    'hft/misc/input',
-    'hft/misc/misc',
-    'hft/misc/mobilehacks',
-    'hft/syncedclock',
-    'hft/misc/touch',
+    '../node_modules/happyfuntimes/dist/hft',
+    '../node_modules/hft-sample-ui/dist/sample-ui',
+    '../node_modules/hft-game-utils/dist/game-utils',
+    '../3rdparty/hft-utils/dist/imageloader',
+    '../3rdparty/hft-utils/dist/imageutils',
   ], function(
+    hft,
+    sampleUI,
+    gameUtils,
     ImageLoader,
-    ImageUtils,
-    CommonUI,
-    GameClient,
-    Input,
-    Misc,
-    MobileHacks,
-    SyncedClock,
-    Touch) {
+    ImageUtils) {
+
+  var GameClient = hft.GameClient;
+  var SyncedClock = hft.SyncedClock;
+  var CommonUI = sampleUI.commonUI;
+  var Input = sampleUI.input;
+  var Misc = sampleUI.misc;
+  var MobileHacks = sampleUI.mobileHacks;
+  var Touch = sampleUI.touch;
 
   var globals = {
     debug: false,

@@ -30,38 +30,63 @@
  */
 "use strict";
 
-// Require will call this with GameServer, GameSupport, and Misc once
-// gameserver.js, gamesupport.js, and misc.js have loaded.
+const isDevMode = process.env.NODE_ENV === 'development';
+const requirejs = require('requirejs');
+requirejs.config({
+  nodeRequire: require,
+  baseUrl: __dirname,
+});
 
 // Start the main app logic.
 requirejs([
-    '../bower_components/hft-utils/dist/audio',
-    '../bower_components/tdl/tdl/textures',
-    '../bower_components/tdl/tdl/webgl',
-    '../bower_components/hft-utils/dist/imageloader',
-    '../bower_components/hft-utils/dist/imageutils',
-    '../bower_components/hft-utils/dist/spritemanager',
-    'hft/gameserver',
-    'hft/gamesupport',
-    'hft/misc/misc',
-    'hft/syncedclock',
+    'happyfuntimes',
+    'hft-game-utils',
+    'hft-sample-ui',
+    '../3rdparty/hft-utils/dist/audio',
+    '../3rdparty/tdl/tdl/textures',
+    '../3rdparty/tdl/tdl/webgl',
+    '../3rdparty/hft-utils/dist/imageloader',
+    '../3rdparty/hft-utils/dist/imageutils',
+    '../3rdparty/hft-utils/dist/spritemanager',
     './particleeffectmanager',
     './particlesystemmanager',
     './tweeny',
   ], function(
+    happyfuntimes,
+    gameUtils,
+    sampleUI,
     AudioManager,
     Textures,
     WebGL,
     ImageLoader,
     ImageUtils,
     SpriteManager,
-    GameServer,
-    GameSupport,
-    Misc,
-    SyncedClock,
     ParticleEffectManager,
     ParticleSystemManager,
     tweeny) {
+
+  var GameServer = happyfuntimes.GameServer;
+  var SyncedClock = happyfuntimes.SyncedClock;
+  var GameSupport = gameUtils.gameSupport;
+  var Misc = sampleUI.misc;
+
+  var $ = document.getElementById.bind(document);
+
+  const instructionElem = $("instruction");
+  instructionElem.addEventListener('click', hideInstructions);
+  instructionElem.addEventListener('touchstart', hideInstructions);
+  instructionElem.addEventListener('pointerdown', hideInstructions);
+  showInstructions();
+  $("c").addEventListener('click', showInstructions);
+  $("c").addEventListener('touchstart', showInstructions);
+  $("c").addEventListener('pointerdown', showInstructions);
+
+  function hideInstructions() {
+    instructionElem.style.display = "none";
+  }
+  function showInstructions() {
+    instructionElem.style.display = "block";
+  }
 
   var globals = {
     tapTime: 0.25,
@@ -169,6 +194,7 @@ requirejs([
 
   // A new player has arrived.
   server.addEventListener('playerconnect', function(netPlayer, name) {
+    hideInstructions();
     players.push(new Player(netPlayer, name));
   });
 
